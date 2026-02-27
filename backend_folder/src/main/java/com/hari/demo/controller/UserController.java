@@ -1,9 +1,11 @@
 package com.hari.demo.controller;
 
 import com.hari.demo.model.User;
+import com.hari.demo.model.UserDTO;
 import com.hari.demo.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.ResponseEntity;
 
 import java.util.List;
 
@@ -17,15 +19,25 @@ public class UserController {
 
     // SIGNUP
     @PostMapping("/signup")
-    public User signup(@RequestBody User user) {
-        return userService.signup(user);
+    public ResponseEntity<?> signup(@RequestBody UserDTO userDTO) {
+        try {
+            User created = userService.signupFromDTO(userDTO);
+            created.setPassword(null);
+            return ResponseEntity.ok(created);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(ex.getMessage());
+        }
     }
 
     // LOGIN
     @PostMapping("/login")
-    public String login(@RequestBody User user) {
-        User loggedIn = userService.login(user.getUsername(), user.getPassword());
-        return loggedIn != null ? "Login successful!" : "Invalid credentials!";
+    public Object login(@RequestBody UserDTO userDTO) {
+        User loggedIn = userService.loginFromDTO(userDTO);
+        if (loggedIn != null) {
+            loggedIn.setPassword(null);
+            return loggedIn;
+        }
+        return "Invalid credentials!";
     }
 
     // GET ALL USERS

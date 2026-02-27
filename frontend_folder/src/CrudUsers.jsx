@@ -12,11 +12,13 @@ export default function CrudUsers() {
     username: "",
     email: "",
     password: "",
+    role: "STUDENT",
   });
 
   const [loginData, setLoginData] = useState({
-    username: "",
+    email: "",
     password: "",
+    role: "STUDENT",
   });
 
   const [editingUser, setEditingUser] = useState(null);
@@ -24,6 +26,7 @@ export default function CrudUsers() {
     username: "",
     email: "",
     password: "",
+    role: "STUDENT",
   });
 
   async function fetchUsers() {
@@ -39,16 +42,21 @@ export default function CrudUsers() {
   async function handleSignup(e) {
     e.preventDefault();
     try {
+      // ensure role is uppercase to match backend enum
+      const payload = { ...signupData, role: signupData.role?.toUpperCase() };
       const res = await fetch(`${API_BASE}/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(signupData),
+        body: JSON.stringify(payload),
       });
 
-      if (!res.ok) throw new Error("Signup failed");
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || "Signup failed");
+      }
 
       setMessage("Signup successful! Please login.");
-      setSignupData({ username: "", email: "", password: "" });
+      setSignupData({ username: "", email: "", password: "", role: "STUDENT" });
       setPage("login");
     } catch (err) {
       setMessage("Signup error: " + err.message);
@@ -58,14 +66,18 @@ export default function CrudUsers() {
   async function handleLogin(e) {
     e.preventDefault();
     try {
+      const payload = { ...loginData, role: loginData.role?.toUpperCase() };
       const res = await fetch(`${API_BASE}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(loginData),
+        body: JSON.stringify(payload),
       });
 
-      const text = await res.text();
-      if (text !== "Login successful!") throw new Error(text);
+      // backend now returns user object or error message
+      const data = await res.json();
+      if (!data || data.id == null) {
+        throw new Error(typeof data === 'string' ? data : 'Invalid credentials');
+      }
 
       setMessage("Login successful!");
       setPage("dashboard");
@@ -79,10 +91,11 @@ export default function CrudUsers() {
     e.preventDefault();
     const id = editingUser.id;
 
+    const payload = { ...editData, role: editData.role?.toUpperCase() };
     await fetch(`${API_BASE}/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editData),
+      body: JSON.stringify(payload),
     });
 
     setEditingUser(null);
@@ -155,13 +168,30 @@ export default function CrudUsers() {
               Login
             </h2>
 
+            {/* role selector */}
+            <div className="flex justify-center mb-4">
+              <div className="inline-flex bg-gray-200 rounded-lg p-1">
+                {['STUDENT','MENTOR','ADMIN'].map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setLoginData({ ...loginData, role: r })}
+                    className={`px-4 py-2 rounded-lg focus:outline-none
+                      ${loginData.role === r ? 'bg-white text-indigo-600' : 'text-gray-600'}`}
+                  >
+                    {r.charAt(0) + r.slice(1).toLowerCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <form className="space-y-6" onSubmit={handleLoginSubmit}>
               <input
-                type="text"
-                placeholder="Username"
-                value={loginData.username}
+                type="email"
+                placeholder="Email Address"
+                value={loginData.email}
                 onChange={(e) =>
-                  setLoginData({ ...loginData, username: e.target.value })
+                  setLoginData({ ...loginData, email: e.target.value })
                 }
                 className="w-full px-4 py-3 border rounded-lg"
               />
@@ -203,6 +233,23 @@ export default function CrudUsers() {
             <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">
               Sign Up
             </h2>
+
+            {/* role selector */}
+            <div className="flex justify-center mb-4">
+              <div className="inline-flex bg-gray-200 rounded-lg p-1">
+                {['STUDENT','MENTOR','ADMIN'].map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setSignupData({ ...signupData, role: r })}
+                    className={`px-4 py-2 rounded-lg focus:outline-none
+                      ${signupData.role === r ? 'bg-white text-indigo-600' : 'text-gray-600'}`}
+                  >
+                    {r.charAt(0) + r.slice(1).toLowerCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <form className="space-y-6" onSubmit={handleSignupSubmit}>
               <input
@@ -266,6 +313,7 @@ export default function CrudUsers() {
                 onClick={() => {
                   setPage("landing");
                   setMessage("");
+                  setLoginData({ email: "", password: "", role: "Student" });
                 }}
                 className="px-6 py-2 bg-gray-600 text-white rounded-lg"
               >
@@ -280,6 +328,7 @@ export default function CrudUsers() {
                   <th className="px-4 py-2">ID</th>
                   <th className="px-4 py-2">Username</th>
                   <th className="px-4 py-2">Email</th>
+                  <th className="px-4 py-2">Role</th>
                   <th className="px-4 py-2">Actions</th>
                 </tr>
               </thead>
@@ -289,6 +338,7 @@ export default function CrudUsers() {
                     <td className="px-4 py-2">{u.id}</td>
                     <td className="px-4 py-2">{u.username}</td>
                     <td className="px-4 py-2">{u.email}</td>
+                    <td className="px-4 py-2">{u.role ? (u.role.charAt(0) + u.role.slice(1).toLowerCase()) : ''}</td>
                     <td className="px-4 py-2">
                       <button
                         onClick={() => {
@@ -297,6 +347,7 @@ export default function CrudUsers() {
                             username: u.username,
                             email: u.email,
                             password: "",
+                            role: (u.role || "STUDENT").toString().toUpperCase(),
                           });
                         }}
                         className="px-3 py-1 bg-blue-500 text-white rounded mr-2"
@@ -348,6 +399,22 @@ export default function CrudUsers() {
                     }
                     className="w-full px-4 py-2 border rounded-lg"
                   />
+
+                  <div className="flex justify-center mb-4">
+                    <div className="inline-flex bg-gray-200 rounded-lg p-1">
+                      {['STUDENT','MENTOR','ADMIN'].map((r) => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => setEditData({ ...editData, role: r })}
+                          className={`px-3 py-1 rounded-lg focus:outline-none
+                            ${editData.role === r ? 'bg-white text-indigo-600' : 'text-gray-600'}`}
+                        >
+                          {r.charAt(0) + r.slice(1).toLowerCase()}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
                   <button className="w-full py-2 bg-green-600 text-white rounded-lg">
                     Save Changes
